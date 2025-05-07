@@ -390,16 +390,22 @@
             snapshot.forEach(doc => batch.delete(doc.ref));
             await batch.commit();
         }
-        async function renderRecords() {
-            const records = await getRecords();
-            const tbody = document.getElementById('recordsTable').querySelector('tbody');
-            tbody.innerHTML = '';
-            records.forEach(r => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${r.userName}</td><td>${r.bookName}</td><td>${r.dueDate}</td>`;
-                tbody.appendChild(tr);
+        // Real-time records table update
+        function listenToRecords() {
+            db.collection('library_records').onSnapshot(snapshot => {
+                const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const tbody = document.getElementById('recordsTable').querySelector('tbody');
+                tbody.innerHTML = '';
+                records.forEach(r => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${r.userName}</td><td>${r.bookName}</td><td>${r.dueDate}</td>`;
+                    tbody.appendChild(tr);
+                });
             });
         }
+        // Start listening for real-time updates
+        listenToRecords();
+
         async function issueBook() {
             const name = document.getElementById('name').value.trim();
             const reg = document.getElementById('regNumber').value.trim();
@@ -412,17 +418,13 @@
             const dueDate = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toLocaleString();
             await saveRecord({ userName: name, bookName: book, dueDate });
             alert(`Book issued! Due date: ${dueDate}`);
-            renderRecords();
         }
         async function returnBook() {
             const name = document.getElementById('name').value.trim();
             const bookName = document.getElementById('returnBookName').value.trim();
             await deleteRecord(name, bookName);
             alert('Book returned (if it existed).');
-            renderRecords();
         }
-        // Initial render
-        renderRecords();
     </script>
 </body>
 </html> 
