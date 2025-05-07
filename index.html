@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Library Management 2025</title>
+    <title>Library Management 2024</title>
     <style>
         :root {
             --bg: rgba(224,229,236,0.7);
@@ -228,7 +228,7 @@
     <video autoplay muted loop id="bgVideo">
         <source src="https://cdn.pixabay.com/video/2015/09/27/846-140823862_large.mp4" type="video/mp4">
     </video>
-    <h1>Library Management 2025</h1>
+    <h1>Library Management 2024</h1>
     <div class="container">
         <div class="card">
             <h2 style="margin-top:0;color:var(--primary-dark);font-size:1.4rem;">Enter Your Personal Details</h2>
@@ -275,7 +275,25 @@
             </table>
         </div>
     </div>
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <!-- Add Firestore -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <script>
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+          apiKey: "AIzaSyBsbXPkq8xsEjvEmFKeRzL6L96vS5P0ncw",
+          authDomain: "library-management-ecdc2.firebaseapp.com",
+          projectId: "library-management-ecdc2",
+          storageBucket: "library-management-ecdc2.firebasestorage.app",
+          messagingSenderId: "213138810667",
+          appId: "1:213138810667:web:5491bd347bbfc10f58876e",
+          measurementId: "G-5D4MSE61HP"
+        };
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
         // Animate all .animate-left and .animate-right buttons on scroll into view
         document.addEventListener('DOMContentLoaded', function() {
             const animatedBtns = document.querySelectorAll('.animate-left, .animate-right');
@@ -354,14 +372,26 @@
                 });
             }
         }
-        function getRecords() {
-            return JSON.parse(localStorage.getItem('library_records') || '[]');
+
+        // --- Firestore-based record functions ---
+        async function getRecords() {
+            const snapshot = await db.collection('library_records').get();
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         }
-        function saveRecords(records) {
-            localStorage.setItem('library_records', JSON.stringify(records));
+        async function saveRecord(record) {
+            await db.collection('library_records').add(record);
         }
-        function renderRecords() {
-            const records = getRecords();
+        async function deleteRecord(userName, bookName) {
+            const snapshot = await db.collection('library_records')
+                .where('userName', '==', userName)
+                .where('bookName', '==', bookName)
+                .get();
+            const batch = db.batch();
+            snapshot.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
+        }
+        async function renderRecords() {
+            const records = await getRecords();
             const tbody = document.getElementById('recordsTable').querySelector('tbody');
             tbody.innerHTML = '';
             records.forEach(r => {
@@ -370,7 +400,7 @@
                 tbody.appendChild(tr);
             });
         }
-        function issueBook() {
+        async function issueBook() {
             const name = document.getElementById('name').value.trim();
             const reg = document.getElementById('regNumber').value.trim();
             const section = document.getElementById('section').value.trim();
@@ -380,24 +410,15 @@
                 return;
             }
             const dueDate = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toLocaleString();
-            const records = getRecords();
-            records.push({ userName: name, bookName: book, dueDate });
-            saveRecords(records);
+            await saveRecord({ userName: name, bookName: book, dueDate });
             alert(`Book issued! Due date: ${dueDate}`);
             renderRecords();
         }
-        function returnBook() {
+        async function returnBook() {
             const name = document.getElementById('name').value.trim();
             const bookName = document.getElementById('returnBookName').value.trim();
-            let records = getRecords();
-            const initialLength = records.length;
-            records = records.filter(r => !(r.userName === name && r.bookName === bookName));
-            if (records.length < initialLength) {
-                alert('Book returned successfully.');
-            } else {
-                alert('No matching record found for return.');
-            }
-            saveRecords(records);
+            await deleteRecord(name, bookName);
+            alert('Book returned (if it existed).');
             renderRecords();
         }
         // Initial render
