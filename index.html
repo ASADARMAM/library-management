@@ -249,10 +249,12 @@
                     <option value="PSYCHOLOGY">PSYCHOLOGY</option>
                     <option value="SOFTWARE ENGINEERING">SOFTWARE ENGINEERING</option>
                     <option value="HISTORICAL">HISTORICAL</option>
+                    <option value="URDU NOVELS">URDU NOVELS</option>
                 </select>
             </label>
             <label>Book:
                 <select id="book"></select>
+                <button type="button" id="readOnlineBtn" style="margin-left:10px;padding:8px 18px;border-radius:10px;background:#1976d2;color:#fff;font-weight:600;cursor:pointer;">Read Online</button>
             </label>
             <button class="animate-left" onclick="issueBook()">Confirm Issue</button>
         </div>
@@ -348,6 +350,28 @@
                 "Pakistan: A Modern History",
                 "Partition",
                 "Pakistan: Beyond the Crisis State"
+            ],
+            "URDU NOVELS": [
+                "Peer-e-Kamil",
+                "Jannat Kay Pattay",
+                "Namal",
+                "Mushaf",
+                "Aab-e-Hayat",
+                "Alif",
+                "Amar Bail",
+                "Humsafar",
+                "Shehr-e-Zaat",
+                "Meri Zaat Zarra-e-Benishan",
+                "Raja Gidh",
+                "Zindagi Gulzar Hai",
+                "Bano",
+                "Aangan",
+                "Udaas Naslain",
+                "La Hasil",
+                "Man-o-Salwa",
+                "Aks",
+                "Maat",
+                "Aik Mohabbat Sau Afsanay"
             ]
         };
 
@@ -363,6 +387,11 @@
             const cat = document.getElementById('category').value;
             const bookSel = document.getElementById('book');
             bookSel.innerHTML = '';
+            // Always add a default option
+            const defaultOpt = document.createElement('option');
+            defaultOpt.value = '';
+            defaultOpt.textContent = 'Select a book';
+            bookSel.appendChild(defaultOpt);
             if (bookCategories[cat]) {
                 bookCategories[cat].forEach(book => {
                     const opt = document.createElement('option');
@@ -390,7 +419,98 @@
             snapshot.forEach(doc => batch.delete(doc.ref));
             await batch.commit();
         }
-        // Real-time records table update
+        // Mapping of book names to public domain book URLs (only for available books)
+        const bookLinks = {
+            // Classic literature in public domain
+            "RIGHT AND PREJUDICE": "https://www.gutenberg.org/files/1342/1342-h/1342-h.htm",
+            "THE GREAT GATSBY": "https://www.gutenberg.org/files/64317/64317-h/64317-h.htm",
+            
+            // Historical texts
+            "The History of the Decline and Fall of the Roman Empire": "https://www.gutenberg.org/files/25717/25717-h/25717-h.htm",
+            
+            // Psychology (classic texts only)
+            "Psychology and Achievement": "https://www.gutenberg.org/files/28148/28148-h/28148-h.htm",
+
+            // Extend bookLinks with public PDF links for Urdu novels
+            "Peer-e-Kamil": "https://drive.google.com/file/d/1BPWgT2TKprNxx8h--IiY_kBbm8P_IMX_/view?usp=sharing",
+            "Jannat Kay Pattay": "https://www.urdureadings.com/wp-content/uploads/2021/07/Jannat-Kay-Pattay-by-Nimra-Ahmad.pdf",
+            "Namal": "https://www.urdureadings.com/wp-content/uploads/2021/07/Namal-by-Nimra-Ahmad.pdf",
+            "Mushaf": "https://www.urdureadings.com/wp-content/uploads/2021/07/Mushaf-by-Nimra-Ahmad.pdf",
+            "Aab-e-Hayat": "https://www.urdureadings.com/wp-content/uploads/2021/07/Aab-e-Hayat-by-Umera-Ahmed.pdf",
+            "Alif": "https://www.urdureadings.com/wp-content/uploads/2021/07/Alif-by-Umera-Ahmed.pdf",
+            "Amar Bail": "https://www.urdureadings.com/wp-content/uploads/2021/07/Amar-Bail-by-Umera-Ahmed.pdf",
+            "Humsafar": "https://www.urdureadings.com/wp-content/uploads/2021/07/Humsafar-by-Farhat-Ishtiaq.pdf",
+            "Shehr-e-Zaat": "https://www.urdureadings.com/wp-content/uploads/2021/07/Shehr-e-Zaat-by-Umera-Ahmed.pdf",
+            "Meri Zaat Zarra-e-Benishan": "https://www.urdureadings.com/wp-content/uploads/2021/07/Meri-Zaat-Zarra-e-Benishan-by-Umera-Ahmed.pdf",
+            "Raja Gidh": "https://www.urdureadings.com/wp-content/uploads/2021/07/Raja-Gidh-by-Bano-Qudsia.pdf",
+            "Zindagi Gulzar Hai": "https://www.urdureadings.com/wp-content/uploads/2021/07/Zindagi-Gulzar-Hai-by-Umera-Ahmed.pdf",
+            "Bano": "https://www.urdureadings.com/wp-content/uploads/2021/07/Bano-by-Razia-Butt.pdf",
+            "Aangan": "https://www.urdureadings.com/wp-content/uploads/2021/07/Aangan-by-Khadeeja-Mastoor.pdf",
+            "Udaas Naslain": "https://www.urdureadings.com/wp-content/uploads/2021/07/Udaas-Naslain-by-Abdullah-Hussain.pdf",
+            "La Hasil": "https://www.urdureadings.com/wp-content/uploads/2021/07/La-Hasil-by-Umera-Ahmed.pdf",
+            "Man-o-Salwa": "https://www.urdureadings.com/wp-content/uploads/2021/07/Man-o-Salwa-by-Umera-Ahmed.pdf",
+            "Aks": "https://www.urdureadings.com/wp-content/uploads/2021/07/Aks-by-Umera-Ahmed.pdf",
+            "Maat": "https://www.urdureadings.com/wp-content/uploads/2021/07/Maat-by-Umera-Ahmed.pdf",
+            "Aik Mohabbat Sau Afsanay": "https://www.urdureadings.com/wp-content/uploads/2021/07/Aik-Mohabbat-Sau-Afsanay-by-Ashfaq-Ahmad.pdf"
+        };
+
+        // Add modal HTML for book reading
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.createElement('div');
+            modal.id = 'readBookModal';
+            modal.style.display = 'none';
+            modal.style.position = 'fixed';
+            modal.style.top = '0';
+            modal.style.left = '0';
+            modal.style.width = '100vw';
+            modal.style.height = '100vh';
+            modal.style.background = 'rgba(0,0,0,0.7)';
+            modal.style.zIndex = '9999';
+            modal.style.justifyContent = 'center';
+            modal.style.alignItems = 'center';
+            modal.innerHTML = `
+                <div style="background:#fff;max-width:90vw;max-height:90vh;width:900px;height:80vh;position:relative;border-radius:18px;overflow:hidden;display:flex;flex-direction:column;">
+                    <button id="closeReadBookModal" style="position:absolute;top:10px;right:18px;z-index:2;font-size:1.5rem;background:none;border:none;cursor:pointer;">&times;</button>
+                    <div id="bookViewer" style="flex:1;overflow:auto;height:100%;width:100%;"></div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            document.getElementById('closeReadBookModal').onclick = function() {
+                modal.style.display = 'none';
+                document.getElementById('bookViewer').innerHTML = '';
+            };
+        });
+
+        // Function to open the book modal
+        function openReadBook(bookName) {
+            const url = bookLinks[bookName];
+            const modal = document.getElementById('readBookModal');
+            const viewer = document.getElementById('bookViewer');
+            if (!url) {
+                viewer.innerHTML = '<div style="padding:2em;text-align:center;">No online version available for this book.</div>';
+            } else {
+                // Show loading spinner/message
+                viewer.innerHTML = '<div id="bookLoadingSpinner" style="display:flex;align-items:center;justify-content:center;height:100%;font-size:1.3rem;color:#1976d2;">Loading book, please wait...</div>';
+                // Create iframe
+                const iframe = document.createElement('iframe');
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = 'none';
+                iframe.allowFullscreen = true;
+                iframe.onload = function() {
+                    const spinner = document.getElementById('bookLoadingSpinner');
+                    if (spinner) spinner.remove();
+                };
+                iframe.src = url;
+                // Replace spinner with iframe after a short delay to ensure spinner is visible
+                setTimeout(() => {
+                    viewer.appendChild(iframe);
+                }, 200);
+            }
+            modal.style.display = 'flex';
+        }
+
+        // Update the real-time records table to add the Read Online button
         function listenToRecords() {
             db.collection('library_records').onSnapshot(snapshot => {
                 const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -403,8 +523,14 @@
                 });
             });
         }
-        // Start listening for real-time updates
-        listenToRecords();
+
+        // Also update the table header to add a new column for the button
+        document.addEventListener('DOMContentLoaded', function() {
+            const th = document.createElement('th');
+            th.textContent = 'Read';
+            const tr = document.querySelector('#recordsTable thead tr');
+            if (tr && tr.children.length === 3) tr.appendChild(th);
+        });
 
         async function issueBook() {
             const name = document.getElementById('name').value.trim();
@@ -425,6 +551,33 @@
             await deleteRecord(name, bookName);
             alert('Book returned (if it existed).');
         }
+
+        // Add event listener for the new Read Online button in the Issue Book section
+        document.addEventListener('DOMContentLoaded', function() {
+            const readBtn = document.getElementById('readOnlineBtn');
+            const bookSel = document.getElementById('book');
+            function updateReadBtn() {
+                const bookName = bookSel.value;
+                if (bookLinks[bookName]) {
+                    readBtn.disabled = false;
+                    readBtn.style.opacity = '1';
+                    readBtn.style.cursor = 'pointer';
+                } else {
+                    readBtn.disabled = true;
+                    readBtn.style.opacity = '0.5';
+                    readBtn.style.cursor = 'not-allowed';
+                }
+            }
+            bookSel.addEventListener('change', updateReadBtn);
+            updateReadBtn(); // Initial state
+            readBtn.onclick = function() {
+                const bookName = bookSel.value;
+                if (!bookName || !bookLinks[bookName]) {
+                    return;
+                }
+                openReadBook(bookName);
+            };
+        });
     </script>
 </body>
 </html> 
