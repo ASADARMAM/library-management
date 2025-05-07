@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Library Management 2024</title>
+    <style>
+        :root {
+            --bg: rgba(224,229,236,0.7);
+            --card-bg: rgba(224,229,236,0.7);
+            --shadow-light: rgba(255,255,255,0.7);
+            --shadow-dark: rgba(163,177,198,0.7);
+            --primary: #1976d2;
+            --primary-dark: #115293;
+            --text: #222b45;
+            --border-radius: 22px;
+        }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            position: relative;
+            cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 19l7-7 3 3-7 7-3-3z'/><path d='M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z'/><path d='M2 2l7.586 7.586'/><circle cx='11' cy='11' r='2'/></svg>"), auto;
+        }
+        #bgVideo {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            z-index: -2;
+            object-fit: cover;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(224,229,236,0.3);
+            z-index: -1;
+            pointer-events: none;
+        }
+        .container, .card, .records, h1 {
+            position: relative;
+            z-index: 1;
+        }
+        h1 {
+            color: var(--primary-dark);
+            text-align: center;
+            margin-top: 40px;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            text-shadow: 0 2px 8px var(--shadow-light);
+        }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 0 16px;
+        }
+        .card, .records {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow:
+                8px 8px 16px var(--shadow-dark),
+                -8px -8px 16px var(--shadow-light);
+            padding: 32px 24px 24px 24px;
+            margin-bottom: 32px;
+            border: none;
+            backdrop-filter: blur(5px);
+        }
+        .records {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
+            padding: 24px 16px 16px 16px;
+            /* Animation setup */
+            opacity: 0;
+            transform: translateY(120px);
+            transition: opacity 1.2s cubic-bezier(.4,2,.6,1), transform 1.2s cubic-bezier(.4,2,.6,1);
+        }
+        .records.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        label {
+            display: block;
+            margin-top: 18px;
+            color: var(--primary-dark);
+            font-weight: 500;
+        }
+        input, select {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 14px 22px;
+            margin-top: 14px;
+            border: none;
+            border-radius: 24px;
+            font-size: 1.13rem;
+            font-weight: 600;
+            background: rgba(224,229,236,0.7);
+            color: var(--primary-dark);
+            box-shadow:
+                6px 6px 16px var(--shadow-dark),
+                -6px -6px 16px var(--shadow-light);
+            transition: box-shadow 0.18s, background 0.18s;
+            backdrop-filter: blur(5px);
+            cursor: text;
+        }
+        input:focus, select:focus {
+            outline: none;
+            background: #f7fafd;
+            box-shadow:
+                2px 2px 8px #b8bac3,
+                -2px -2px 8px #ffffff,
+                0 0 0 2px var(--primary);
+        }
+        .action-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            align-items: center;
+        }
+        button, .action-btn {
+            background: var(--card-bg);
+            color: var(--primary-dark);
+            border: none;
+            border-radius: 16px;
+            padding: 16px 38px;
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-top: 24px;
+            margin-right: 12px;
+            cursor: pointer;
+            box-shadow:
+                6px 6px 12px var(--shadow-dark),
+                -6px -6px 12px var(--shadow-light);
+            transition: box-shadow 0.18s, transform 0.12s, opacity 0.5s, left 0.5s, right 0.5s;
+            position: relative;
+            backdrop-filter: blur(5px);
+            overflow: hidden;
+        }
+        button::before, .action-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 0, 0, 0.2),
+                transparent
+            );
+            transition: 0.5s;
+        }
+        button:hover::before, .action-btn:hover::before {
+            left: 100%;
+        }
+        button:hover, .action-btn:hover {
+            box-shadow:
+                2px 2px 8px var(--shadow-dark),
+                -2px -2px 8px var(--shadow-light);
+            transform: translateY(-2px) scale(1.03);
+            color: #ff0000;
+            transition: all 0.3s ease;
+        }
+        button:active, .action-btn:active {
+            box-shadow:
+                inset 2px 2px 6px var(--shadow-dark),
+                inset -2px -2px 6px var(--shadow-light);
+            transform: translateY(2px) scale(0.98);
+        }
+        /* Animation base for all animated buttons */
+        .animate-left, .animate-right {
+            opacity: 0;
+            position: relative;
+            transition: opacity 0.6s cubic-bezier(.4,2,.6,1), left 0.6s cubic-bezier(.4,2,.6,1), right 0.6s cubic-bezier(.4,2,.6,1), transform 0.6s cubic-bezier(.4,2,.6,1);
+        }
+        .animate-left {
+            left: -80px;
+        }
+        .animate-right {
+            right: -80px;
+        }
+        .animate-left.visible {
+            opacity: 1;
+            left: 0;
+            transform: translateY(0) scale(1.03);
+        }
+        .animate-right.visible {
+            opacity: 1;
+            right: 0;
+            transform: translateY(0) scale(1.03);
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 10px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 4px 4px 12px var(--shadow-dark), -4px -4px 12px var(--shadow-light);
+        }
+        th, td {
+            border: none;
+            padding: 12px 10px;
+            text-align: left;
+        }
+        th {
+            background: var(--bg);
+            color: var(--primary-dark);
+            font-weight: 600;
+        }
+        tr:nth-child(even) {
+            background: #f4f8fb;
+        }
+        @media (max-width: 700px) {
+            .container { max-width: 98vw; padding: 0 4vw; }
+            .card, .records { padding: 18px 6vw; }
+            h1 { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body>
+    <video autoplay muted loop id="bgVideo">
+        <source src="https://cdn.pixabay.com/video/2015/09/27/846-140823862_large.mp4" type="video/mp4">
+    </video>
+    <h1>Library Management 2024</h1>
+    <div class="container">
+        <div class="card">
+            <h2 style="margin-top:0;color:var(--primary-dark);font-size:1.4rem;">Enter Your Personal Details</h2>
+            <label>Name: <input type="text" id="name"></label>
+            <label>Reg. Number: <input type="text" id="regNumber"></label>
+            <label>Section: <input type="text" id="section"></label>
+        </div>
+        <div class="card action-buttons">
+            <button class="action-btn animate-left" id="issueBtn" onclick="showIssue()">Issue a Book</button>
+            <button class="action-btn animate-right" id="returnBtn" onclick="showReturn()">Return a Book</button>
+        </div>
+        <div class="card" id="issueSection" style="display:none;">
+            <h3 style="color:var(--primary-dark);margin-top:0;">Issue Book</h3>
+            <label>Category:
+                <select id="category" onchange="updateBooks()">
+                    <option value="">Select</option>
+                    <option value="ENGLISH">ENGLISH</option>
+                    <option value="PSYCHOLOGY">PSYCHOLOGY</option>
+                    <option value="SOFTWARE ENGINEERING">SOFTWARE ENGINEERING</option>
+                    <option value="HISTORICAL">HISTORICAL</option>
+                </select>
+            </label>
+            <label>Book:
+                <select id="book"></select>
+            </label>
+            <button class="animate-left" onclick="issueBook()">Confirm Issue</button>
+        </div>
+        <div class="card" id="returnSection" style="display:none;">
+            <h3 style="color:var(--primary-dark);margin-top:0;">Return Book</h3>
+            <label>Book Name: <input type="text" id="returnBookName"></label>
+            <button class="animate-right" onclick="returnBook()">Return</button>
+        </div>
+        <div class="records">
+            <h2 style="color:var(--primary-dark);margin-top:0;">Current Library Records</h2>
+            <table id="recordsTable">
+                <thead>
+                    <tr>
+                        <th>User Name</th>
+                        <th>Book Name</th>
+                        <th>Due Date</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+    <script>
+        // Animate all .animate-left and .animate-right buttons on scroll into view
+        document.addEventListener('DOMContentLoaded', function() {
+            const animatedBtns = document.querySelectorAll('.animate-left, .animate-right');
+            const observer = new window.IntersectionObserver(entries => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.4 });
+            animatedBtns.forEach(btn => observer.observe(btn));
+
+            // Animate the .records container on scroll into view
+            const records = document.querySelector('.records');
+            const recordsObserver = new window.IntersectionObserver(entries => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        records.classList.add('visible');
+                        recordsObserver.unobserve(records);
+                    }
+                });
+            }, { threshold: 0.3 });
+            recordsObserver.observe(records);
+        });
+
+        const bookCategories = {
+            "ENGLISH": [
+                "TO KILL A MOCKINGBIRD",
+                "RIGHT AND PREJUDICE",
+                "THE CATCHER IN THE RYE",
+                "1984",
+                "THE GREAT GATSBY"
+            ],
+            "PSYCHOLOGY": [
+                "Psychology: Themes and Variations",
+                "Thinking, Fast and Slow",
+                "The Man Who Mistook His Wife for a Hat",
+                "Quiet",
+                "Influence"
+            ],
+            "SOFTWARE ENGINEERING": [
+                "THE MYTHICAL MAN-MONTH",
+                "CRACKING THE CODING INTERVIEW",
+                "SOFTWARE ENGINEERING",
+                "CLEAN ARCHITECTURE",
+                "INTRODUCTION TO ALGORITHMS"
+            ],
+            "HISTORICAL": [
+                "Pakistan: A Hard Country",
+                "The Idea of Pakistan",
+                "Pakistan: A Modern History",
+                "Partition",
+                "Pakistan: Beyond the Crisis State"
+            ]
+        };
+
+        function showIssue() {
+            document.getElementById('issueSection').style.display = '';
+            document.getElementById('returnSection').style.display = 'none';
+        }
+        function showReturn() {
+            document.getElementById('issueSection').style.display = 'none';
+            document.getElementById('returnSection').style.display = '';
+        }
+        function updateBooks() {
+            const cat = document.getElementById('category').value;
+            const bookSel = document.getElementById('book');
+            bookSel.innerHTML = '';
+            if (bookCategories[cat]) {
+                bookCategories[cat].forEach(book => {
+                    const opt = document.createElement('option');
+                    opt.value = book;
+                    opt.textContent = book;
+                    bookSel.appendChild(opt);
+                });
+            }
+        }
+        function getRecords() {
+            return JSON.parse(localStorage.getItem('library_records') || '[]');
+        }
+        function saveRecords(records) {
+            localStorage.setItem('library_records', JSON.stringify(records));
+        }
+        function renderRecords() {
+            const records = getRecords();
+            const tbody = document.getElementById('recordsTable').querySelector('tbody');
+            tbody.innerHTML = '';
+            records.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${r.userName}</td><td>${r.bookName}</td><td>${r.dueDate}</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+        function issueBook() {
+            const name = document.getElementById('name').value.trim();
+            const reg = document.getElementById('regNumber').value.trim();
+            const section = document.getElementById('section').value.trim();
+            const book = document.getElementById('book').value;
+            if (!name || !reg || !section || !book) {
+                alert('Please fill all fields and select a book.');
+                return;
+            }
+            const dueDate = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toLocaleString();
+            const records = getRecords();
+            records.push({ userName: name, bookName: book, dueDate });
+            saveRecords(records);
+            alert(`Book issued! Due date: ${dueDate}`);
+            renderRecords();
+        }
+        function returnBook() {
+            const name = document.getElementById('name').value.trim();
+            const bookName = document.getElementById('returnBookName').value.trim();
+            let records = getRecords();
+            const initialLength = records.length;
+            records = records.filter(r => !(r.userName === name && r.bookName === bookName));
+            if (records.length < initialLength) {
+                alert('Book returned successfully.');
+            } else {
+                alert('No matching record found for return.');
+            }
+            saveRecords(records);
+            renderRecords();
+        }
+        // Initial render
+        renderRecords();
+    </script>
+</body>
+</html> 
