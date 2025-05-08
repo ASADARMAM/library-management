@@ -195,32 +195,53 @@
             right: 0;
             transform: translateY(0) scale(1.03);
         }
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            margin-top: 20px;
+            border-radius: 12px;
+            box-shadow: 4px 4px 12px var(--shadow-dark), -4px -4px 12px var(--shadow-light);
+        }
         table {
             border-collapse: collapse;
             width: 100%;
-            margin-top: 10px;
+            min-width: 800px; /* Ensure table doesn't get too compressed */
             background: var(--card-bg);
             border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 4px 4px 12px var(--shadow-dark), -4px -4px 12px var(--shadow-light);
         }
         th, td {
             border: none;
-            padding: 12px 10px;
+            padding: 12px 16px;
             text-align: left;
+            white-space: nowrap; /* Prevent text wrapping */
         }
         th {
             background: var(--bg);
             color: var(--primary-dark);
             font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 1;
         }
         tr:nth-child(even) {
             background: #f4f8fb;
         }
         @media (max-width: 700px) {
-            .container { max-width: 98vw; padding: 0 4vw; }
-            .card, .records { padding: 18px 6vw; }
-            h1 { font-size: 2rem; }
+            .container { 
+                max-width: 98vw; 
+                padding: 0 4vw; 
+            }
+            .card, .records { 
+                padding: 18px 6vw; 
+            }
+            h1 { 
+                font-size: 2rem; 
+            }
+            .table-container {
+                margin: 10px -6vw; /* Negative margin to allow full-width scrolling */
+                width: calc(100% + 12vw); /* Compensate for negative margin */
+                border-radius: 0;
+            }
         }
     </style>
 </head>
@@ -263,18 +284,21 @@
             <label>Book Name: <input type="text" id="returnBookName"></label>
             <button class="animate-right" onclick="returnBook()">Return</button>
         </div>
-        <div class="records">
-            <h2 style="color:var(--primary-dark);margin-top:0;">Current Library Records</h2>
-            <table id="recordsTable">
-                <thead>
-                    <tr>
-                        <th>User Name</th>
-                        <th>Book Name</th>
-                        <th>Due Date</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+        <div class="records" id="recordsSection">
+            <h3 style="color:var(--primary-dark);margin-top:0;">Records</h3>
+            <div class="table-container">
+                <table id="recordsTable">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Book</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordsBody"></tbody>
+                </table>
+            </div>
         </div>
     </div>
     <!-- Firebase App (the core Firebase SDK) -->
@@ -518,7 +542,16 @@
                 tbody.innerHTML = '';
                 records.forEach(r => {
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td>${r.userName}</td><td>${r.bookName}</td><td>${r.dueDate}</td>`;
+                    if (r.returned) {
+                        tr.style.textDecoration = 'line-through';
+                        tr.style.opacity = '0.7';
+                    }
+                    tr.innerHTML = `
+                        <td>${r.userName || '-'}</td>
+                        <td>${r.bookName || '-'}</td>
+                        <td>${r.dueDate || '-'}</td>
+                        <td style="color: ${r.returned ? '#4CAF50' : '#FF5722'}">${r.returned ? 'Returned' : 'Issued'}</td>
+                    `;
                     tbody.appendChild(tr);
                 });
             });
@@ -532,24 +565,92 @@
             if (tr && tr.children.length === 3) tr.appendChild(th);
         });
 
+        async function renderRecords() {
+            try {
+                const records = await getRecords();
+                const tbody = document.getElementById('recordsBody');
+                tbody.innerHTML = '';
+                
+                records.forEach(r => {
+                    const tr = document.createElement('tr');
+                    if (r.returned) {
+                        tr.style.textDecoration = 'line-through';
+                        tr.style.opacity = '0.7';
+                    }
+                    tr.innerHTML = `
+                        <td>${r.userName || '-'}</td>
+                        <td>${r.bookName || '-'}</td>
+                        <td>${r.dueDate || '-'}</td>
+                        <td style="color: ${r.returned ? '#4CAF50' : '#FF5722'}">${r.returned ? 'Returned' : 'Issued'}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error('Error rendering records:', error);
+            }
+        }
+
         async function issueBook() {
             const name = document.getElementById('name').value.trim();
             const reg = document.getElementById('regNumber').value.trim();
             const section = document.getElementById('section').value.trim();
             const book = document.getElementById('book').value;
+            const category = document.getElementById('category').value;
+
             if (!name || !reg || !section || !book) {
                 alert('Please fill all fields and select a book.');
                 return;
             }
+
             const dueDate = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toLocaleString();
-            await saveRecord({ userName: name, bookName: book, dueDate });
+            await saveRecord({ 
+                userName: name, 
+                regNumber: reg,
+                section: section,
+                bookName: book, 
+                category: category,
+                dueDate,
+                returned: false
+            });
             alert(`Book issued! Due date: ${dueDate}`);
+            renderRecords(); // Refresh records after issuing
         }
+
         async function returnBook() {
-            const name = document.getElementById('name').value.trim();
-            const bookName = document.getElementById('returnBookName').value.trim();
-            await deleteRecord(name, bookName);
-            alert('Book returned (if it existed).');
+            const name = document.getElementById('name').value.trim().toLowerCase();
+            const bookName = document.getElementById('returnBookName').value.trim().toLowerCase();
+
+            try {
+                // Fetch all records and log them for debugging
+                const allRecordsSnapshot = await db.collection('library_records').get();
+                const allRecords = allRecordsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                console.log("All records in DB:", allRecords);
+
+                // Find the first matching record (case-insensitive, not returned)
+                let found = false;
+                for (const doc of allRecordsSnapshot.docs) {
+                    const data = doc.data();
+                    if (
+                        (data.userName || '').trim().toLowerCase() === name &&
+                        (data.bookName || '').trim().toLowerCase() === bookName &&
+                        !data.returned
+                    ) {
+                        await db.collection('library_records').doc(doc.id).update({ returned: true });
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (found) {
+                    alert('Book returned successfully.');
+                    renderRecords();
+                } else {
+                    alert('No matching record found for return.');
+                }
+            } catch (error) {
+                console.error('Error returning book:', error);
+                alert('Error returning book. Please try again.');
+            }
         }
 
         // Add event listener for the new Read Online button in the Issue Book section
@@ -577,6 +678,20 @@
                 }
                 openReadBook(bookName);
             };
+        });
+
+        // Initialize records on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Show records section immediately
+            document.getElementById('recordsSection').style.display = 'block';
+            renderRecords();
+            
+            // Initialize animations
+            const elements = document.querySelectorAll('.animate-left, .animate-right');
+            elements.forEach(el => {
+                el.style.opacity = '1';
+                el.style.transform = 'translateX(0)';
+            });
         });
     </script>
 </body>
